@@ -6,7 +6,7 @@ import torch
 import argparse
 import numpy as np
 from tqdm import tqdm
-from config import Config
+# from config import Config
 
 parser = argparse.ArgumentParser("Train Bert for Citation Functions")
 parser.add_argument(
@@ -17,13 +17,12 @@ parser.add_argument(
 )
 parser.add_argument(
     "--serialization-dir",
-    default="checkpoints/experiment",
+    default="./checkpoints/experiment",
     help="Path to a (non-existent) directory for serializing checkpoints and tensorboard logs.",
 )
 parser.add_argument(
     "--bert-dir",
-    default="checkpoints/experiment",
-    help="Path to a (non-existent) directory for serializing checkpoints and tensorboard logs.",
+    default="allenai/scibert_scivocab/uncased"
 )
 parser.add_argument('--seed',  type=int, default=8083, help='Init seed')
 # parser.add_argument(
