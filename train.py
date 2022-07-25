@@ -48,6 +48,8 @@ parser.add_argument('--max_grad_norm',  type=float, default=1.0)
 parser.add_argument('--train_path',  type=str, default="./data/dataset_updated_final_processed_final_train_v5.jsonl")
 parser.add_argument('--dev_path',  type=str, default="./data/dataset_updated_final_processed_final_valid_v5.jsonl")
 parser.add_argument('--test_path',  type=str, default="./data/dataset_updated_final_processed_final_test_v5.jsonl")
+parser.add_argument('--intent_path',  type=str, default="./data/intent.json")
+parser.add_argument('--section_path',  type=str, default="./data/section.json")
 
 parser.add_argument("--use_section", action='store_true', default=False)
 parser.add_argument("--use_title", action='store_true', default=False)
