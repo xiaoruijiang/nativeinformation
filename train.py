@@ -22,7 +22,7 @@ parser.add_argument(
 )
 parser.add_argument(
     "--bert-dir",
-    default="allenai/scibert_scivocab/uncased"
+    default="allenai/scibert_scivocab_uncased"
 )
 parser.add_argument('--seed',  type=int, default=8083, help='Init seed')
 # parser.add_argument(
