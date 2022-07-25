@@ -95,11 +95,11 @@ class BertClassifier(nn.Module):
 		if self.use_doi:
 			doi_embed = self.DOI_embedding(doi_ids)
 			feature_vectors.append(doi_embed)
-		
-
+		if self.use_section:
+			sec_embed = self.section_embedding(sec_ids)
+			feature_vectors.append(sec_embed)
 		# feature_vec = torch.cat([sen_vec, sec_embed], dim=1)
 		feature_vec = torch.cat(feature_vectors, dim=1)
-
 		return self.classifier(self.dropout(feature_vec))
 
 	def cal_loss(self, logits, labels):

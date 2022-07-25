@@ -41,7 +41,7 @@ def process_citation_sentene(sentence, citation_string=None, always_mark_citatio
 
 class BaseCitationDataset(Dataset):
 
-	def __init__(self, data_json_path, intent_json_path, section_json_path, journal_json_path, DOI_json_path, pretained_LM_tokenizer, is_train=False):
+	def __init__(self, pretained_LM_tokenizer, data_json_path, intent_json_path, section_json_path, journal_json_path = None, DOI_json_path = None, is_train=False):
 
 		self.pretained_LM_tokenizer = pretained_LM_tokenizer
 		self.is_train = is_train
@@ -52,11 +52,17 @@ class BaseCitationDataset(Dataset):
 		with open(section_json_path) as out:
 			self.section_json = json.loads(out.read())
 
-		with open(journal_json_path) as out:
-			self.journal_json = json.loads(out.read())
+		if journal_json_path :
+			with open(journal_json_path) as out:
+				self.journal_json = json.loads(out.read())
+		else:
+			self.journal_json = None
 
-		with open(DOI_json_path) as out:
-			self.DOI_json = json.loads(out.read())
+		if DOI_json_path:
+			with open(DOI_json_path) as out:
+				self.DOI_json = json.loads(out.read())
+		else:
+			self.DOI_json = None
 
 		self.citation_data = []
 		with codecs.open(data_json_path, 'r', 'utf-8') as out:
@@ -109,17 +115,32 @@ class BaseCitationDataset(Dataset):
 				after_sen_tokens = [self.pretained_LM_tokenizer.cls_token] + after_sen_tokens + [self.pretained_LM_tokenizer.sep_token]
 				after_sen_tokens_ids = np.array(self.pretained_LM_tokenizer.convert_tokens_to_ids(after_sen_tokens))
 
-				self.citation_data.append({
-					"sentence_ids": token_ids,
-					"prev_sen_token_ids": prev_sen_token_ids,
-					"after_sen_tokens_ids": after_sen_tokens_ids,
-					"title_token_ids": title_token_ids,
-					"cited_title_token_ids": cited_title_token_ids,
-					"intention": self.intent_json[intent],
-					"section": self.section_json[section_name],
-					"url": self.journal_json[journal_name],
-					"doi": self.DOI_json[DOI_name]
-				})
+				if self.journal_json and self.DOI_json:
+					self.citation_data.append({
+						"sentence_ids": token_ids,
+						"prev_sen_token_ids": prev_sen_token_ids,
+						"after_sen_tokens_ids": after_sen_tokens_ids,
+						"title_token_ids": title_token_ids,
+						"cited_title_token_ids": cited_title_token_ids,
+						"intention": self.intent_json[intent],
+						"section": self.section_json[section_name],
+						"url": self.journal_json[journal_name],
+						"doi": self.DOI_json[DOI_name]
+					})
+				else:
+					self.citation_data.append({
+						"sentence_ids": token_ids,
+						"prev_sen_token_ids": prev_sen_token_ids,
+						"after_sen_tokens_ids": after_sen_tokens_ids,
+						"title_token_ids": title_token_ids,
+						"cited_title_token_ids": cited_title_token_ids,
+						"intention": self.intent_json[intent],
+						"section": self.section_json[section_name]
+						# ,
+						# "url": self.journal_json[journal_name],
+						# "doi": self.DOI_json[DOI_name]
+					})
+
 
 	def get_intention(self, citation):
 		pass
@@ -155,10 +176,16 @@ class BaseCitationDataset(Dataset):
 		return len(self.section_json)
 
 	def get_journal_num(self):
-		return len(self.journal_json)
+		if self.journal_json:
+			return len(self.journal_json)
+		else:
+			return 0
 
 	def get_DOI_num(self):
-		return len(self.DOI_json)
+		if self.DOI_json:
+			return len(self.DOI_json)
+		else:
+			return 0
 
 class SciDataset(BaseCitationDataset):
 
@@ -169,11 +196,14 @@ class SciDataset(BaseCitationDataset):
 		return citation['sectionName']
 
 	def get_journal(self, citation):
-		url = citation['url']
-		website = urlparse(url).netloc
-		if website not in self.journal_json:
-			return 'other'
-		return website
+		if 'url' in citation:
+			url = citation['url']
+			website = urlparse(url).netloc
+			if website not in self.journal_json:
+				return 'other'
+			return website
+		else:
+			return None
 
 	def get_title_pair(self, citation):
 		title = citation['title'] if not citation['title'].endswith('.') else citation['title'][:-1]
@@ -188,17 +218,20 @@ class SciDataset(BaseCitationDataset):
 		return citation['prev_sen'], citation['after_sen']
 
 	def get_DOI(self, citation):
-		if citation['doi'] is None or citation['doi'] == 'miss':
-			citation['doi'] = 'empty'
+		if 'doi' in citation:
+			if citation['doi'] is None or citation['doi'] == 'miss':
+				citation['doi'] = 'empty'
 
-		if citation['doi'].startswith("10."):
-			doi =  citation['doi'][:7]
-			if doi in self.DOI_json:
-				return doi
+			if citation['doi'].startswith("10."):
+				doi =  citation['doi'][:7]
+				if doi in self.DOI_json:
+					return doi
+				else:
+					return 'other'
 			else:
-				return 'other'
+				return citation['doi']
 		else:
-			return citation['doi']
+			return None
 
 	def get_string(self, citation):
 		text = citation['string']
@@ -225,11 +258,9 @@ class ACLDataset(BaseCitationDataset):
 		return text[offset[0]: offset[1]], ' ' + text
 
 
-def data_wrapper(dataset, device):
+def data_wrapper(dataset: BaseCitationDataset, device):
 	labels = torch.tensor([d['intention'] for d in dataset]).long()
 	section_embedding = torch.tensor([d['section'] for d in dataset]).long()
-	journal_embedding = torch.tensor([d['url'] for d in dataset]).long()
-	DOI_embedding = torch.tensor([d['doi'] for d in dataset]).long()
 
 	text_list = []
 	for d in dataset:
@@ -246,21 +277,38 @@ def data_wrapper(dataset, device):
 		title_list += [d['title_token_ids'], d['cited_title_token_ids']]
 	title_text, title_mask, title_seg_ids = process_tensor(title_list)
 
-	return {
-		'text': text.to(device), 
-		'mask': mask.to(device),
-		'seg_ids': seg_ids.to(device),
-		'title_text': title_text.to(device),
-		'title_mask': title_mask.to(device),
-		'title_seg_ids': title_seg_ids.to(device),
-		'context_text': context_text.to(device),
-		'context_mask': context_mask.to(device),
-		'context_seg_ids': context_seg_ids.to(device),
-		'labels': labels.to(device),
-		'sec_names': section_embedding.to(device),
-		'jour_names': journal_embedding.to(device),
-		'doi_names': DOI_embedding.to(device)
-	}
+	if dataset.journal_json and dataset.DOI_json:
+		journal_embedding = torch.tensor([d['url'] for d in dataset]).long()
+		DOI_embedding = torch.tensor([d['doi'] for d in dataset]).long()
+		return {
+			'text': text.to(device),
+			'mask': mask.to(device),
+			'seg_ids': seg_ids.to(device),
+			'title_text': title_text.to(device),
+			'title_mask': title_mask.to(device),
+			'title_seg_ids': title_seg_ids.to(device),
+			'context_text': context_text.to(device),
+			'context_mask': context_mask.to(device),
+			'context_seg_ids': context_seg_ids.to(device),
+			'labels': labels.to(device),
+			'sec_names': section_embedding.to(device),
+			'jour_names': journal_embedding.to(device),
+			'doi_names': DOI_embedding.to(device)
+		}
+	else:
+		return {
+			'text': text.to(device),
+			'mask': mask.to(device),
+			'seg_ids': seg_ids.to(device),
+			'title_text': title_text.to(device),
+			'title_mask': title_mask.to(device),
+			'title_seg_ids': title_seg_ids.to(device),
+			'context_text': context_text.to(device),
+			'context_mask': context_mask.to(device),
+			'context_seg_ids': context_seg_ids.to(device),
+			'labels': labels.to(device),
+			'sec_names': section_embedding.to(device)
+		}
 
 def get_data_loader(dataset, batch_size, num_worker, device):
 	collate_fn = lambda d: data_wrapper(d, device)

@@ -41,10 +41,14 @@ parser.add_argument('--data_type',  type=str, default="sci", help='SciDataset ot
 parser.add_argument('--batch_size',  type=int, default=16)
 parser.add_argument('--eval_batch_size',  type=int, default=16)
 parser.add_argument('--lr',  type=float, default=5e-4)
-parser.add_argument('--accumulation_steps',  type=int, default=150)
-parser.add_argument('--warmup_steps',  type=int, default=1500)
-parser.add_argument('--epochs',  type=int, default=20)
+parser.add_argument('--accumulation_steps',  type=int, default=5)
+parser.add_argument('--lr_warmup',  type=float, default=0.1)
+parser.add_argument('--epochs',  type=int, default=10)
 parser.add_argument('--max_grad_norm',  type=float, default=1.0)
+
+parser.add_argument('--train_path',  type=str, default="./data/dataset_updated_final_processed_final_train_v5.jsonl")
+parser.add_argument('--dev_path',  type=str, default="./data/dataset_updated_final_processed_final_valid_v5.jsonl")
+parser.add_argument('--test_path',  type=str, default="./data/dataset_updated_final_processed_final_test_v5.jsonl")
 
 parser.add_argument("--use_section", action='store_true', default=False)
 parser.add_argument("--use_title", action='store_true', default=False)
@@ -58,43 +62,43 @@ if __name__ == "__main__":
 	# --------------------------------------------------------------------------------------------
 	#   INPUT ARGUMENTS AND CONFIG
 	# --------------------------------------------------------------------------------------------
-	_A = parser.parse_args()
-	# _C = Config(_A.config, _A.config_override)
+	run_args = parser.parse_args()
+	# _C = Config(run_args.config, run_args.config_override)
 
-	np.random.seed(_A.seed)
-	torch.manual_seed(_A.seed)
-	torch.cuda.manual_seed_all(_A.seed)
+	np.random.seed(run_args.seed)
+	torch.manual_seed(run_args.seed)
+	torch.cuda.manual_seed_all(run_args.seed)
 	torch.backends.cudnn.benchmark = False
 	torch.backends.cudnn.deterministic = True
 
-	device = torch.device(f"cuda:{_A.gpu_ids[0]}" if _A.gpu_ids[0] >= 0 else "cpu")
+	device = torch.device(f"cuda:{run_args.gpu_ids[0]}" if run_args.gpu_ids[0] >= 0 else "cpu")
 
-	tokenizer = BertTokenizer.from_pretrained(_A.bert_dir)
-	model = BertModel.from_pretrained(_A.bert_dir)
+	tokenizer = BertTokenizer.from_pretrained(run_args.bert_dir)
+	model = BertModel.from_pretrained(run_args.bert_dir)
 
 	tokenizer.add_tokens([TARGET_CITATION])
 	model.resize_token_embeddings(len(tokenizer))
 
 	# D = SciDataset if _C.DATA.TYPE == 'sci' else ACLDataset
-	Dataset = SciDataset if _A.data_type == 'sci' else ACLDataset
+	Dataset = SciDataset if run_args.data_type == 'sci' else ACLDataset
 
 	# train_dataset = Dataset(_C.DATA.TRAIN_PATH, _C.DATA.LABEL_PATH, _C.DATA.CITATION_LABEL_PATH, _C.DATA.URL_LABEL_PATH, _C.DATA.DOI_LABEL_PATH, tokenizer, is_train=True)
-	# train_loader = get_data_loader(train_dataset, _C.OPTIM.BATCH_SIZE, _A.cpu_workers, device)
-	train_dataset = Dataset(tokenizer, _A.train_path, _A.intent_path, _A.section_path, is_train=True)
-	train_loader = get_data_loader(train_dataset, _A.batch_size, _A.cpu_workers, device)
+	# train_loader = get_data_loader(train_dataset, _C.OPTIM.BATCH_SIZE, run_args.cpu_workers, device)
+	train_dataset = Dataset(tokenizer, run_args.train_path, run_args.intent_path, run_args.section_path, is_train=True)
+	train_loader = get_data_loader(train_dataset, run_args.batch_size, run_args.cpu_workers, device)
 
 	# dev_dataset = Dataset(_C.DATA.DEV_PATH, _C.DATA.LABEL_PATH, _C.DATA.CITATION_LABEL_PATH, _C.DATA.URL_LABEL_PATH, _C.DATA.DOI_LABEL_PATH, tokenizer)
-	# dev_loader = get_data_loader(dev_dataset, _C.OPTIM.EVAL_BATCH_SIZE, _A.cpu_workers, device)
-	dev_dataset = Dataset(tokenizer, _A.dev_path, _A.intent_path, _A.section_path, is_train=False)
-	dev_loader = get_data_loader(dev_dataset, _A.eval_batch_size, _A.cpu_workers, device)
+	# dev_loader = get_data_loader(dev_dataset, _C.OPTIM.EVAL_BATCH_SIZE, run_args.cpu_workers, device)
+	dev_dataset = Dataset(tokenizer, run_args.dev_path, run_args.intent_path, run_args.section_path, is_train=False)
+	dev_loader = get_data_loader(dev_dataset, run_args.eval_batch_size, run_args.cpu_workers, device)
 
 	# test_dataset = Dataset(_C.DATA.TEST_PATH, _C.DATA.LABEL_PATH, _C.DATA.CITATION_LABEL_PATH, _C.DATA.URL_LABEL_PATH, _C.DATA.DOI_LABEL_PATH, tokenizer)
-	# test_loader = get_data_loader(test_dataset, _C.OPTIM.EVAL_BATCH_SIZE, _A.cpu_workers, device)
-	test_dataset = Dataset(tokenizer, _A.test_path, _A.intent_path, _A.section_path, is_train=False)
-	test_loader = get_data_loader(test_dataset, _A.eval_batch_size, _A.cpu_workers, device)
+	# test_loader = get_data_loader(test_dataset, _C.OPTIM.EVAL_BATCH_SIZE, run_args.cpu_workers, device)
+	test_dataset = Dataset(tokenizer, run_args.test_path, run_args.intent_path, run_args.section_path, is_train=False)
+	test_loader = get_data_loader(test_dataset, run_args.eval_batch_size, run_args.cpu_workers, device)
 
-	config = {"use_secttion": _A.use_section, "use_title": _A.use_title, "use_context": _A.use_context,
-			  "use_url": _A.use_url, "use_doi": _A.use_doi}
+	config = {"use_secttion": run_args.use_section, "use_title": run_args.use_title, "use_context": run_args.use_context,
+			  "use_url": run_args.use_url, "use_doi": run_args.use_doi}
 
 	# bert_model = BertClassifier(model, _C.MODEL.BERT_OUT_DIM, train_dataset.get_class_num(), train_dataset.get_section_num(), train_dataset.get_journal_num(), train_dataset.get_DOI_num(), _C.MODEL.BERT_DROPOUT).to(device)
 	if train_dataset.journal_json and train_dataset.DOI_json:
@@ -106,15 +110,16 @@ if __name__ == "__main__":
 	# num_training_steps = (len(train_loader) / _C.OPTIM.ACCUMULATION_STEPS) * _C.OPTIM.NUM_EPOCH
 	# scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=_C.OPTIM.NUM_WARMUP_STEPS, num_training_steps=num_training_steps)
 
-	optimizer = AdamW(bert_model.parameters(), lr=_A.lr, correct_bias=False)
-	num_training_steps = (len(train_loader) / _A.accumulation_steps) * _A.epochs
-	scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=_A.warmup_steps, num_training_steps=num_training_steps)
-
+	optimizer = AdamW(bert_model.parameters(), lr=run_args.lr, correct_bias=False)
+	num_training_steps = (len(train_loader) / run_args.accumulation_steps) * run_args.epochs
+	scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=run_args.lr_warmup * num_training_steps,
+												num_training_steps=num_training_steps)
+	
 	best_macro_f1 = 0.0
 	test_macro_f1 = 0.0
 	test_f1 = None
 	# for i in range(_C.OPTIM.NUM_EPOCH):
-	for i in range(_A.epochs):
+	for i in range(run_args.epochs):
 		print('Epoch %d' % i)
 
 		bert_model.train()
@@ -134,13 +139,13 @@ if __name__ == "__main__":
 
 			loss = bert_model.cal_loss(logits, batch['labels'])
 			# loss = loss / _C.OPTIM.ACCUMULATION_STEPS
-			loss = loss / _A.accumulation_steps
+			loss = loss / run_args.accumulation_steps
 			loss.backward()
 			# torch.nn.utils.clip_grad_norm_(model.parameters(), _C.OPTIM.MAX_GRAD_NORM)  # Gradient clipping is not in AdamW anymore (so you can use amp without issue)
-			torch.nn.utils.clip_grad_norm_(model.parameters(), _A.max_grad_norm)  # Gradient clipping is not in AdamW anymore (so you can use amp without issue)
+			torch.nn.utils.clip_grad_norm_(model.parameters(), run_args.max_grad_norm)  # Gradient clipping is not in AdamW anymore (so you can use amp without issue)
 			
 			# if (step+1) % _C.OPTIM.ACCUMULATION_STEPS == 0:
-			if (step + 1) % _A.accumulation_steps == 0:
+			if (step + 1) % run_args.accumulation_steps == 0:
 				optimizer.step()
 				scheduler.step()
 				optimizer.zero_grad()
