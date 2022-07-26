@@ -5,10 +5,10 @@ from tqdm import tqdm
 train_dict = {}
 dev_dict = {}
 test_dict = {}
-with codecs.open('new_scicite/all_with_section_name_updated_final_v5.jsonl', 'r', 'utf-8') as out:
-    with codecs.open('new_scicite/final_train_v5.jsonl', 'w', 'utf-8') as train_out:
-        with codecs.open('new_scicite/final_dev_v5.jsonl', 'w', 'utf-8') as dev_out:
-            with codecs.open('new_scicite/final_test_v5.jsonl', 'w', 'utf-8') as test_out:
+with codecs.open('dataset_updated_final_v5.jsonl', 'r', 'utf-8') as out:
+    with codecs.open('dataset_updated_final_train_v5.jsonl', 'w', 'utf-8') as train_out:
+        with codecs.open('dataset_updated_final_dev_v5.jsonl', 'w', 'utf-8') as dev_out:
+            with codecs.open('dataset_updated_final_test_v5.jsonl', 'w', 'utf-8') as test_out:
                 for line in tqdm(out.readlines()):
                     line = line.strip()
                     try:
