@@ -44,6 +44,7 @@ parser.add_argument('--accumulation_steps',  type=int, default=5)
 parser.add_argument('--lr_warmup',  type=float, default=0.1)
 parser.add_argument('--epochs',  type=int, default=10)
 parser.add_argument('--max_grad_norm',  type=float, default=1.0)
+parser.add_argument('--dropout',  type=float, default=0.1)
 
 parser.add_argument('--train_path',  type=str, default="./data/dataset_updated_final_processed_final_train_v5.jsonl")
 parser.add_argument('--dev_path',  type=str, default="./data/dataset_updated_final_processed_final_valid_v5.jsonl")
@@ -83,29 +84,32 @@ if __name__ == "__main__":
 	# D = SciDataset if _C.DATA.TYPE == 'sci' else ACLDataset
 	Dataset = SciDataset if run_args.data_type == 'sci' else ACLDataset
 
+	print("loading training dataset ...")
 	# train_dataset = Dataset(_C.DATA.TRAIN_PATH, _C.DATA.LABEL_PATH, _C.DATA.CITATION_LABEL_PATH, _C.DATA.URL_LABEL_PATH, _C.DATA.DOI_LABEL_PATH, tokenizer, is_train=True)
 	# train_loader = get_data_loader(train_dataset, _C.OPTIM.BATCH_SIZE, run_args.cpu_workers, device)
 	train_dataset = Dataset(tokenizer, run_args.train_path, run_args.intent_path, run_args.section_path, is_train=True)
-	train_loader = get_data_loader(train_dataset, run_args.batch_size, run_args.cpu_workers, device)
+	train_loader = get_data_loader(train_dataset, run_args.batch_size, run_args.cpu_workers, device, run_args.use_url, run_args.use_doi)
 
+	print("loading development dataset ...")
 	# dev_dataset = Dataset(_C.DATA.DEV_PATH, _C.DATA.LABEL_PATH, _C.DATA.CITATION_LABEL_PATH, _C.DATA.URL_LABEL_PATH, _C.DATA.DOI_LABEL_PATH, tokenizer)
 	# dev_loader = get_data_loader(dev_dataset, _C.OPTIM.EVAL_BATCH_SIZE, run_args.cpu_workers, device)
 	dev_dataset = Dataset(tokenizer, run_args.dev_path, run_args.intent_path, run_args.section_path, is_train=False)
-	dev_loader = get_data_loader(dev_dataset, run_args.eval_batch_size, run_args.cpu_workers, device)
+	dev_loader = get_data_loader(dev_dataset, run_args.eval_batch_size, run_args.cpu_workers, device, run_args.use_url, run_args.use_doi)
 
+	print("loading test dataset ...")
 	# test_dataset = Dataset(_C.DATA.TEST_PATH, _C.DATA.LABEL_PATH, _C.DATA.CITATION_LABEL_PATH, _C.DATA.URL_LABEL_PATH, _C.DATA.DOI_LABEL_PATH, tokenizer)
 	# test_loader = get_data_loader(test_dataset, _C.OPTIM.EVAL_BATCH_SIZE, run_args.cpu_workers, device)
 	test_dataset = Dataset(tokenizer, run_args.test_path, run_args.intent_path, run_args.section_path, is_train=False)
-	test_loader = get_data_loader(test_dataset, run_args.eval_batch_size, run_args.cpu_workers, device)
+	test_loader = get_data_loader(test_dataset, run_args.eval_batch_size, run_args.cpu_workers, device, run_args.use_url, run_args.use_doi)
 
-	config = {"use_secttion": run_args.use_section, "use_title": run_args.use_title, "use_context": run_args.use_context,
-			  "use_url": run_args.use_url, "use_doi": run_args.use_doi}
+	# config = {"use_secttion": run_args.use_section, "use_title": run_args.use_title, "use_context": run_args.use_context,
+	# 		  "use_url": run_args.use_url, "use_doi": run_args.use_doi}
 
 	# bert_model = BertClassifier(model, _C.MODEL.BERT_OUT_DIM, train_dataset.get_class_num(), train_dataset.get_section_num(), train_dataset.get_journal_num(), train_dataset.get_DOI_num(), _C.MODEL.BERT_DROPOUT).to(device)
 	if train_dataset.journal_json and train_dataset.DOI_json:
-		bert_model = BertClassifier(model, config, train_dataset.get_class_num(), train_dataset.get_section_num(), train_dataset.get_journal_num(), train_dataset.get_DOI_num()).to(device)
+		bert_model = BertClassifier(model, run_args, train_dataset.get_class_num(), train_dataset.get_section_num(), train_dataset.get_journal_num(), train_dataset.get_DOI_num()).to(device)
 	else:
-		bert_model = BertClassifier(model, config, train_dataset.get_class_num(), train_dataset.get_section_num()).to(device)
+		bert_model = BertClassifier(model, run_args, train_dataset.get_class_num(), train_dataset.get_section_num()).to(device)
 
 	# optimizer = AdamW(bert_model.parameters(), lr=_C.OPTIM.LR, correct_bias=False)
 	# num_training_steps = (len(train_loader) / _C.OPTIM.ACCUMULATION_STEPS) * _C.OPTIM.NUM_EPOCH
@@ -125,19 +129,30 @@ if __name__ == "__main__":
 
 		bert_model.train()
 		for step, batch in enumerate(tqdm(train_loader)):
-			# logits = bert_model(input_ids=batch['text'],
-			# 					title_ids=batch['title_text'],
-			# 					title_attention_mask=batch['title_mask'],
-			# 					title_token_type_ids=batch['title_seg_ids'],
-			# 					context_ids=batch['context_text'],
-			# 					context_attention_mask=batch['context_mask'],
-			# 					context_token_type_ids=batch['context_seg_ids'],
-			# 					sec_ids=batch['sec_names'],
-			# 					jour_ids=batch['jour_names'],
-			# 					doi_ids=batch['doi_names'],
-			# 					attention_mask=batch['mask'],
-			# 					token_type_ids=batch['seg_ids'])
-
+			if run_args.use_url and run_args.use_doi:
+				logits = bert_model(input_ids=batch['text'],
+									title_ids=batch['title_text'],
+									title_attention_mask=batch['title_mask'],
+									title_token_type_ids=batch['title_seg_ids'],
+									context_ids=batch['context_text'],
+									context_attention_mask=batch['context_mask'],
+									context_token_type_ids=batch['context_seg_ids'],
+									sec_ids=batch['sec_names'],
+									jour_ids=batch['jour_names'],
+									doi_ids=batch['doi_names'],
+									attention_mask=batch['mask'],
+									token_type_ids=batch['seg_ids'])
+			else:
+				logits = bert_model(input_ids=batch['text'],
+									title_ids=batch['title_text'],
+									title_attention_mask=batch['title_mask'],
+									title_token_type_ids=batch['title_seg_ids'],
+									context_ids=batch['context_text'],
+									context_attention_mask=batch['context_mask'],
+									context_token_type_ids=batch['context_seg_ids'],
+									sec_ids=batch['sec_names'],
+									attention_mask=batch['mask'],
+									token_type_ids=batch['seg_ids'])
 			loss = bert_model.cal_loss(logits, batch['labels'])
 			# loss = loss / _C.OPTIM.ACCUMULATION_STEPS
 			loss = loss / run_args.accumulation_steps
@@ -155,28 +170,7 @@ if __name__ == "__main__":
 		prediction_list = []
 		ground_truth_list = []
 		for batch in tqdm(dev_loader):
-			logits = bert_model(input_ids=batch['text'],
-								title_ids=batch['title_text'],
-								title_attention_mask=batch['title_mask'],
-								title_token_type_ids=batch['title_seg_ids'],
-								context_ids=batch['context_text'],
-								context_attention_mask=batch['context_mask'],
-								context_token_type_ids=batch['context_seg_ids'],
-								sec_ids=batch['sec_names'],
-								jour_ids=batch['jour_names'],
-								doi_ids=batch['doi_names'],
-								attention_mask=batch['mask'],
-								token_type_ids=batch['seg_ids'])
-			predictions = bert_model.prediction(logits)
-			prediction_list += predictions.cpu().numpy().tolist()
-			ground_truth_list += batch['labels'].cpu().numpy().tolist()
-		F1_dict = eval_model(prediction_list, ground_truth_list, train_dataset.intent_json)
-		
-		if best_macro_f1 < F1_dict['ave_F1']:
-			best_macro_f1 = F1_dict['ave_F1']
-			prediction_list = []
-			ground_truth_list = []
-			for batch in tqdm(test_loader):
+			if dev_dataset.journal_json and dev_dataset.DOI_json:
 				logits = bert_model(input_ids=batch['text'],
 									title_ids=batch['title_text'],
 									title_attention_mask=batch['title_mask'],
@@ -189,6 +183,51 @@ if __name__ == "__main__":
 									doi_ids=batch['doi_names'],
 									attention_mask=batch['mask'],
 									token_type_ids=batch['seg_ids'])
+			else:
+				logits = bert_model(input_ids=batch['text'],
+									title_ids=batch['title_text'],
+									title_attention_mask=batch['title_mask'],
+									title_token_type_ids=batch['title_seg_ids'],
+									context_ids=batch['context_text'],
+									context_attention_mask=batch['context_mask'],
+									context_token_type_ids=batch['context_seg_ids'],
+									sec_ids=batch['sec_names'],
+									attention_mask=batch['mask'],
+									token_type_ids=batch['seg_ids'])
+			predictions = bert_model.prediction(logits)
+			prediction_list += predictions.cpu().numpy().tolist()
+			ground_truth_list += batch['labels'].cpu().numpy().tolist()
+		F1_dict = eval_model(prediction_list, ground_truth_list, train_dataset.intent_json)
+		
+		if best_macro_f1 < F1_dict['ave_F1']:
+			best_macro_f1 = F1_dict['ave_F1']
+			prediction_list = []
+			ground_truth_list = []
+			for batch in tqdm(test_loader):
+				if test_dataset.journal_json and test_dataset.DOI_json:
+					logits = bert_model(input_ids=batch['text'],
+										title_ids=batch['title_text'],
+										title_attention_mask=batch['title_mask'],
+										title_token_type_ids=batch['title_seg_ids'],
+										context_ids=batch['context_text'],
+										context_attention_mask=batch['context_mask'],
+										context_token_type_ids=batch['context_seg_ids'],
+										sec_ids=batch['sec_names'],
+										jour_ids=batch['jour_names'],
+										doi_ids=batch['doi_names'],
+										attention_mask=batch['mask'],
+										token_type_ids=batch['seg_ids'])
+				else:
+					logits = bert_model(input_ids=batch['text'],
+										title_ids=batch['title_text'],
+										title_attention_mask=batch['title_mask'],
+										title_token_type_ids=batch['title_seg_ids'],
+										context_ids=batch['context_text'],
+										context_attention_mask=batch['context_mask'],
+										context_token_type_ids=batch['context_seg_ids'],
+										sec_ids=batch['sec_names'],
+										attention_mask=batch['mask'],
+										token_type_ids=batch['seg_ids'])
 				predictions = bert_model.prediction(logits)
 				prediction_list += predictions.cpu().numpy().tolist()
 				ground_truth_list += batch['labels'].cpu().numpy().tolist()

@@ -3,34 +3,35 @@ import torch
 
 class BertClassifier(nn.Module):
 
-	def __init__(self, bert_pretrained_model, _A, num_classes, num_section, num_journal=None, num_DOI=None):
+	def __init__(self, bert_pretrained_model, run_args, num_classes, num_section, num_journal=None, num_DOI=None):
 		super().__init__()
 		self.bert_pretrained_model = bert_pretrained_model
 		# self.dropout = nn.Dropout(dropout)
-		self.dropout = _A.dropout
+		self.dropout = nn.Dropout(run_args.dropout)
 		self.num_classes = num_classes
 		# self.bert_output_size = bert_output_size
 		self.bert_output_size = self.bert_pretrained_model.config.hidden_size
 		self.feature_size = self.bert_output_size
-		if _A.use_title:
+		if run_args.use_title:
 			self.feature_size += self.bert_output_size * 2
-		if _A.use_context:
+		if run_args.use_context:
 			self.feature_size += self.bert_output_size * 2
-		if _A.use_section:
+		if run_args.use_section:
 			self.section_embedding = nn.Embedding(num_section, 256)
 			self.feature_size += 256
-		if _A.use_url:
+		if run_args.use_url:
 			self.journal_embedding = nn.Embedding(num_journal, 256)
 			self.feature_size += 256
-		if _A.use_doi:
+		if run_args.use_doi:
 			self.DOI_embedding = nn.Embedding(num_DOI, 256)
 			self.feature_size += 256
+		print("BertClassifier.feature_size", self.feature_size)
 
 		# self.classifier = nn.Linear(bert_output_size, self.num_classes)
 		self.classifier = nn.Linear(self.feature_size, self.num_classes)
 		self.loss = nn.CrossEntropyLoss(reduction='mean')
 
-		self.args = _A
+		self.args = run_args
 
 	def forward(
         self,
@@ -89,13 +90,13 @@ class BertClassifier(nn.Module):
 			# context_outputs[1]: [cls] of context	BxH
 			context_vec = context_outputs[1].reshape(-1, 2 * self.bert_output_size)
 			feature_vectors.append(context_vec)
-		if self.use_url:
+		if self.args.use_url:
 			j_embed = self.journal_embedding(jour_ids)
 			feature_vectors.append(j_embed)
-		if self.use_doi:
+		if self.args.use_doi:
 			doi_embed = self.DOI_embedding(doi_ids)
 			feature_vectors.append(doi_embed)
-		if self.use_section:
+		if self.args.use_section:
 			sec_embed = self.section_embedding(sec_ids)
 			feature_vectors.append(sec_embed)
 		# feature_vec = torch.cat([sen_vec, sec_embed], dim=1)

@@ -199,6 +199,10 @@ class SciDataset(BaseCitationDataset):
 		if 'url' in citation:
 			url = citation['url']
 			website = urlparse(url).netloc
+
+			if self.journal_json is None:
+				return None
+
 			if website not in self.journal_json:
 				return 'other'
 			return website
@@ -224,6 +228,10 @@ class SciDataset(BaseCitationDataset):
 
 			if citation['doi'].startswith("10."):
 				doi =  citation['doi'][:7]
+
+				if self.DOI_json is None:
+					return None
+
 				if doi in self.DOI_json:
 					return doi
 				else:
@@ -258,7 +266,7 @@ class ACLDataset(BaseCitationDataset):
 		return text[offset[0]: offset[1]], ' ' + text
 
 
-def data_wrapper(dataset: BaseCitationDataset, device):
+def data_wrapper(dataset: BaseCitationDataset, device, use_url, use_doi):
 	labels = torch.tensor([d['intention'] for d in dataset]).long()
 	section_embedding = torch.tensor([d['section'] for d in dataset]).long()
 
@@ -277,7 +285,7 @@ def data_wrapper(dataset: BaseCitationDataset, device):
 		title_list += [d['title_token_ids'], d['cited_title_token_ids']]
 	title_text, title_mask, title_seg_ids = process_tensor(title_list)
 
-	if dataset.journal_json and dataset.DOI_json:
+	if use_url and use_doi:
 		journal_embedding = torch.tensor([d['url'] for d in dataset]).long()
 		DOI_embedding = torch.tensor([d['doi'] for d in dataset]).long()
 		return {
@@ -310,8 +318,8 @@ def data_wrapper(dataset: BaseCitationDataset, device):
 			'sec_names': section_embedding.to(device)
 		}
 
-def get_data_loader(dataset, batch_size, num_worker, device):
-	collate_fn = lambda d: data_wrapper(d, device)
+def get_data_loader(dataset, batch_size, num_worker, device, use_url, use_doi):
+	collate_fn = lambda d: data_wrapper(d, device, use_url, use_doi)
 	return DataLoader(dataset, 
 	    batch_size=batch_size, 
 	    shuffle=True, 
