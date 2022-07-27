@@ -49,6 +49,11 @@ parser.add_argument('--dropout',  type=float, default=0.1)
 import os
 data_root = "./data/"
 data_root = "./data_one_citstr_per_citseg/"
+data_root = "./jiang2021_data_one_citstr_per_citseg/processed_final_one_citstr_per_citseg/citation_function_11class/"
+# data_root = "./jiang2021_data_one_citstr_per_citseg/processed_final_one_citstr_per_citseg/citation_function_6class_jurgens/"
+# data_root = "./jiang2021_data_one_citstr_per_citseg/processed_final_one_citstr_per_citseg/citation_function_9class/"
+# data_root = "./jiang2021_data_one_citstr_per_citseg/processed_final_one_citstr_per_citseg/citation_function_7class/"
+
 parser.add_argument('--train_path',  type=str, default=os.path.join(data_root, "dataset_updated_final_processed_final_train_v5.jsonl"))
 parser.add_argument('--dev_path',  type=str, default=os.path.join(data_root, "dataset_updated_final_processed_final_valid_v5.jsonl"))
 parser.add_argument('--test_path',  type=str, default=os.path.join(data_root, "dataset_updated_final_processed_final_test_v5.jsonl"))
